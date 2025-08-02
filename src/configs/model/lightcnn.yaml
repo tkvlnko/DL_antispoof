@@ -1,0 +1,2 @@
+_target_: src.model.lcnn.LightCNN9 # из src/model/lcnn.py
+dropout_p: 0.2

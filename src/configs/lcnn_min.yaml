@@ -1,0 +1,64 @@
+defaults:
+  - writer: cometml # ← подключаем твой YAML
+  - _self_
+
+seed: 1234
+
+dataloader:
+  collate_fn:
+    _target_: src.datasets.collate.pad_collate
+
+dataset:
+  _target_: src.datasets.asvspoof.ASVspoofDataset
+  root: data/ASVspoof2019_LA
+  split: train
+  n_fft: 512
+  hop_length: 160
+  win_length: 400
+  bonafide_ratio: 0.5
+  spec_aug: null
+
+  # _target_: src.datasets.asvspoof.ASVspoofDataset
+  # root: data/ASVspoof2019_LA
+  # split: train # dev / eval для других фаз
+  # bonafide_ratio: 0.5
+
+batch_size: 64
+num_workers: 4
+shuffle: true
+drop_last: true
+
+model:
+  _target_: src.model.LightCNN9
+  dropout_p: 0.2
+
+loss_fn:
+  _target_: torch.nn.BCEWithLogitsLoss
+
+optimizer:
+  _target_: torch.optim.AdamW
+  lr: 3e-4
+  weight_decay: 1e-4
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  T_max: 30
+
+# loss_fn:
+#   _target_: torch.nn.CrossEntropyLoss
+
+trainer:
+  epochs: 3
+  log_steps: 50
+  device: cpu # поставь cuda, если есть GPU
+
+writer:
+  _target_: src.logger.CometMLWriter # ← путь к твоему классу
+  project_name: "asvspoof_lcnn"
+  workspace: null
+  run_name: "run-${now:%Y%m%d_%H%M%S}"
+  mode: "online" # или offline
+  log_code: false # все kwargs, которые есть в __init__
+  log_graph: false
+  auto_metric_logging: false
+  auto_param_logging: false

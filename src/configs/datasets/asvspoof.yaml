@@ -1,0 +1,38 @@
+train:
+  _target_: src.datasets.ASVspoofDataset # ← класс ниже
+  root: data/ASVspoof2019/LA # папка с аудио и protocols
+  split: train # train / dev / eval
+  segment_secs: 3.0
+  sample_rate: 16000
+  n_fft: 512
+  hop_length: 160
+  win_length: 400
+  bonafide_ratio: 0.5 # балансировка классов
+  name: "train" # для путей index.json
+  instance_transforms: ${transforms.instance_transforms.train}
+
+val:
+  _target_: src.datasets.ASVspoofDataset
+  root: data/ASVspoof2019/LA
+  split: dev
+  segment_secs: 3.0
+  sample_rate: 16000
+  n_fft: 512
+  hop_length: 160
+  win_length: 400
+  bonafide_ratio: null
+  name: "val"
+  instance_transforms: ${transforms.instance_transforms.inference}
+
+test:
+  _target_: src.datasets.ASVspoofDataset
+  root: data/ASVspoof2019/LA
+  split: eval
+  segment_secs: 3.0
+  sample_rate: 16000
+  n_fft: 512
+  hop_length: 160
+  win_length: 400
+  bonafide_ratio: null
+  name: "test"
+  instance_transforms: ${transforms.instance_transforms.inference}
