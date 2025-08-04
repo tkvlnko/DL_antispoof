@@ -1,39 +1,27 @@
 defaults:
-  - writer: cometml # ← подключаем твой YAML
+  - writer: cometml 
+  - datasets@train: asvspoof_train   # возьмёт configs/datasets/asvspoof_train.yaml  → cfg.datasets.train
+  - datasets@dev:   asvspoof_dev     # configs/datasets/asvspoof_dev.yaml     → cfg.datasets.dev
+  - datasets@eval:  asvspoof_eval    # configs/datasets/asvspoof_eval.yaml    → cfg.datasets.eval
   - _self_
 
-seed: 1234
+seed: 1
 
 dataloader:
   collate_fn:
     _target_: src.datasets.collate.pad_collate
 
-dataset:
-  _target_: src.datasets.asvspoof.ASVspoofDataset
-  root: data/ASVspoof2019_LA
-  split: train
-  n_fft: 512
-  hop_length: 160
-  win_length: 400
-  bonafide_ratio: 0.5
-  spec_aug: null
-
-  # _target_: src.datasets.asvspoof.ASVspoofDataset
-  # root: data/ASVspoof2019_LA
-  # split: train # dev / eval для других фаз
-  # bonafide_ratio: 0.5
-
 batch_size: 64
 num_workers: 4
 shuffle: true
 drop_last: true
-
+ 
 model:
   _target_: src.model.LightCNN9
   dropout_p: 0.2
 
 loss_fn:
-  _target_: torch.nn.BCEWithLogitsLoss
+  _target_: torch.nn.CrossEntropyLoss
 
 optimizer:
   _target_: torch.optim.AdamW
@@ -48,9 +36,9 @@ scheduler:
 #   _target_: torch.nn.CrossEntropyLoss
 
 trainer:
-  epochs: 3
+  epochs: 10
   log_steps: 50
-  device: cpu # поставь cuda, если есть GPU
+  device: cuda 
 
 writer:
   _target_: src.logger.CometMLWriter # ← путь к твоему классу

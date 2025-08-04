@@ -1,83 +1,60 @@
-# train.py
-import logging
-from datetime import datetime
-from pathlib import Path
-
-import hydra
+import os
 import numpy as np
-import comet_ml
 import torch
-import torch.nn.functional as F
-from hydra.utils import instantiate
-from omegaconf import OmegaConf
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+import hydra
+from hydra.utils import instantiate, get_original_cwd
+from pathlib import Path
+from omegaconf import DictConfig, OmegaConf
 
-# ─── утилиты ───────────────────────────────────────────
-from src.metrics.calculate_eer import compute_eer            # из файла calculate_eer.py
-from src.logger.cometml import CometMLWriter     # ваш класс логгера
-from src.datasets.collate import pad_collate 
-from src.datasets.asvspoof import ASVspoofDataset  
+from src.datasets.asvspoof import ASVspoofDataset
+from src.datasets.collate import pad_collate
+from src.logger.cometml import CometMLWriter  # если ты инстанцируешь напрямую, иначе через hydra.utils.instantiate
+from src.metrics.calculate_eer import compute_eer, roc_curve  # твоя функция: (bona, spoof) -> eer, thr, fpr, tpr
 
-# reproducibility
-SEED = 1234
-torch.manual_seed(SEED)
-np.random.seed(SEED)
-
-
-@torch.inference_mode()
-def evaluate(model, loader, device):
-    """
-    Прогон по dev-сплиту → eer, threshold.
-    """
-    model.eval()
-
-    bona_scores, spoof_scores = [], []
-
-    for x, y, _ in loader:           # y: float32 [B,1]
-        x, y = x.to(device), y.to(device)
-
-        logits = model(x)            # [B,1]
-        prob   = torch.sigmoid(logits).squeeze(1).cpu()  # bonafide-prob
-
-        bona_scores.extend(prob[y.squeeze(1) == 1].tolist())
-        spoof_scores.extend(prob[y.squeeze(1) == 0].tolist())
-
-    # если по какой-то причине в выборке нет обоих классов
-    if len(bona_scores) == 0 or len(spoof_scores) == 0:
-        return None, None
-
-    eer, thr = compute_eer(np.array(bona_scores),
-                           np.array(spoof_scores))
-    return eer, thr
-
-
+# main entrypoint через Hydra
 @hydra.main(config_path="src/configs", config_name="lcnn_min", version_base=None)
-def main(cfg):
-    # ─── логгер python + Comet ───────────────────────────────
-    global_step = 0
-    log = logging.getLogger("train")
-    log.setLevel(logging.INFO)
-    log.addHandler(logging.StreamHandler())
+def main(cfg: DictConfig):
 
-    comet = CometMLWriter(
-        log,
-        OmegaConf.to_container(cfg, resolve=True),     # project_config
-        project_name=cfg.writer.project_name,
-        workspace=cfg.writer.workspace,
-        run_name=cfg.writer.run_name,
-        mode=cfg.writer.mode,
-    )
-    comet.add_text("yaml_config", OmegaConf.to_yaml(cfg))
+    # --------- 1. подготовка ----------------------------------------------------------------
+    device = torch.device(cfg.trainer.device if torch.cuda.is_available() else "cpu")
+    torch.manual_seed(cfg.seed)
 
-    # ─── датасеты и лоадеры ─────────────────────────────────
-    dev_ds = ASVspoofDataset(
-        root="data/ASVspoof2019_LA",
-        split="dev",
-        n_fft=cfg.dataset.n_fft,
-        hop_length=cfg.dataset.hop_length,
-        win_length=cfg.dataset.win_length,
+    # логгер / CometML
+    try:
+        comet = instantiate(
+            cfg.writer,
+            logger=None,
+            project_config=OmegaConf.to_container(cfg, resolve=True),
+        )
+    except Exception:
+        # fallback: если напрямую
+        comet = CometMLWriter(logger=None, project_config=OmegaConf.to_container(cfg, resolve=True),
+                              project_name=cfg.writer.project_name if "project_name" in cfg.writer else "default",
+                              workspace=cfg.writer.workspace if "workspace" in cfg.writer else None,
+                              run_name=cfg.writer.run_name if "run_name" in cfg.writer else None,
+                              mode=cfg.writer.mode if "mode" in cfg.writer else "online")
+
+    # датасеты
+    orig_root = Path(get_original_cwd())          # корень проекта
+    train_root = orig_root / cfg.train.root
+    dev_root   = orig_root / cfg.dev.root
+    eval_root  = orig_root / cfg.eval.root
+
+
+    train_ds = instantiate(cfg.train, root=str(train_root))
+    dev_ds   = instantiate(cfg.dev,   root=str(dev_root))
+    eval_ds  = instantiate(cfg.eval,  root=str(eval_root))
+
+    train_dl = DataLoader(
+        train_ds,
+        batch_size=cfg.batch_size,
+        shuffle=True,
+        num_workers=cfg.num_workers,
+        drop_last=True,
+        collate_fn=pad_collate,
     )
 
     dev_dl = DataLoader(
@@ -85,79 +62,145 @@ def main(cfg):
         batch_size=cfg.batch_size,
         shuffle=False,
         num_workers=cfg.num_workers,
-        collate_fn=pad_collate,          # та же функция
-    )
-
-
-    train_ds = instantiate(cfg.dataset)
-    train_dl = DataLoader(
-        train_ds,
-        batch_size=cfg.batch_size,
-        shuffle=cfg.shuffle,
-        num_workers=cfg.num_workers,
-        drop_last=cfg.drop_last,
         collate_fn=pad_collate,
     )
 
-    dev_cfg = cfg.dataset.copy()
-    dev_cfg["split"] = "dev"
-    dev_cfg["bonafide_ratio"] = None
-    dev_ds = instantiate(dev_cfg)
-    dev_dl = DataLoader(dev_ds, batch_size=cfg.batch_size, shuffle=False)
+    eval_dl = DataLoader(
+        eval_ds,
+        batch_size=cfg.batch_size,
+        shuffle=False,
+        num_workers=cfg.num_workers,
+        collate_fn=pad_collate,
+    )
 
-    # ─── модель, оптимайзер, lr-sched ───────────────────────
-    device = torch.device(cfg.trainer.device)
-    model = instantiate(cfg.model).to(device)
-    optimizer = instantiate(cfg.optimizer, params=model.parameters())
-    scheduler = instantiate(cfg.scheduler, optimizer=optimizer)
-    loss_fn = instantiate(cfg.loss_fn)
+
+
+    # модель/оптимизатор/лосс/scheduler
+    model = hydra.utils.instantiate(cfg.model).to(device)
+    loss_fn = hydra.utils.instantiate(cfg.loss_fn)
+    optimizer = hydra.utils.instantiate(cfg.optimizer, params=model.parameters())
+    scheduler = hydra.utils.instantiate(cfg.scheduler, optimizer=optimizer)
+
+    # -------------------------------------------------------------------------------
 
     global_step = 0
+    best_eer = float("inf")
 
+    # Optional: сразу создаём панели в Comet для автоматического отображения
+    try:
+        comet.exp.log_other("create_chart", {"name": "Loss", "chart": "line", "metric_list": ["loss_train"]})
+        comet.exp.log_other("create_chart", {"name": "EER", "chart": "line", "metric_list": ["eer_dev"]})
+    except Exception:
+        pass  # не критично
+
+    # --------- 2. тренировочный цикл ---------------------------------------------------------
     for epoch in range(cfg.trainer.epochs):
-        running = 0.0
-        pbar = tqdm(train_dl, desc=f"epoch {epoch+1}", ncols=80)
+        model.train()
+        pbar = tqdm(train_dl, desc=f"epoch {epoch+1}", leave=False)
+        running_loss = 0.0
 
-        for x, y, lengths in pbar:
-            x, y = x.to(device), y.to(device)
+        for batch_idx, batch in enumerate(pbar):
+            # pad_collate даёт (x, y, lengths)
+            if len(batch) == 3:
+                x, y, _ = batch
+            else:
+                x, y = batch  # на случай, если вдруг другой collate
+            x = x.to(device)           # B×1×F×T
+            y = y.to(device)           # B×1 float для BCE
 
-            logits = model(x)
-            loss = loss_fn(logits, y)
+            logits = model(x)          # [B,1]
+            loss = loss_fn(logits, y)  # BCEWithLogitsLoss
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-            running += loss.item()
             global_step += 1
-            comet.set_step(global_step, mode="train")     # <─ ключевое
+            running_loss += loss.item()
+
+            # логируем каждый шаг
+            comet.set_step(global_step, mode="train")
             comet.add_scalars({
                 "loss": loss.item(),
-                "lr":   scheduler.get_last_lr()[0],
+                "lr": optimizer.param_groups[0]["lr"],
             })
 
-            # tqdm & comet
             pbar.set_postfix(loss=f"{loss.item():.4f}")
-            # if global_step % cfg.trainer.log_steps == 0:
-            #     comet.set_step(global_step, mode="train")
-            #     comet.add_scalar("loss", loss.item())
 
-        scheduler.step()
+        # scheduler (после эпохи)
+        try:
+            scheduler.step()
+        except Exception:
+            pass  # некоторые schedulers вызываются вручную иначе
 
-        # ─── evaluation на dev ──────────────────────────────
-        eer, thr = evaluate(model, dev_dl, device)
+        # --------- 3. evaluation на dev внутри функции --------------------------------------
+        eer, thr, fpr, tpr = evaluate_and_log(model, dev_dl, device, comet, epoch + 1, prefix="dev")
+        eer_eval, thr_eval, *_ = evaluate_and_log(model, eval_dl, device, comet, epoch + 1 + 0.5, prefix="eval")
 
-        if eer is not None:                     # всё ок
-            comet.set_step(epoch + 1, mode="dev")      # «epoch» как step
-            comet.add_scalars({
-                "eer": eer,            # появится eer_dev
-                "thr": thr,            # можно тоже отрисовать
-            })
-            log.info(f"[dev] epoch {epoch+1} | EER={eer:.4%} | thr={thr:.3f}")
 
-    model.train() 
-    comet.finish()
-    log.info("Training done.")
+        # чекпойнт по лучшему eer
+        if eer is not None and eer < best_eer:
+            best_eer = eer
+            # можно сохранять модель
+            torch.save(model.state_dict(), os.path.join(os.getcwd(), "best_lightcnn.pt"))
+            # логнуть сохранение
+            comet.add_text("best_checkpoint", f"epoch={epoch+1}, eer={eer:.4%}, thr={thr:.4f}")
+
+        # печать прогресса
+        # print(f"Epoch {epoch+1} train_loss={running_loss/len(train_dl):.4f} eer_dev={eer if eer is not None else 'nan':.4f}")
+        print(f"Epoch {epoch:2d} train_loss={running_loss/len(train_dl):.4f} "
+              f"eer_dev={eer if eer is not None else 'nan':.4f}  eer_eval={eer_eval:.4%}")
+
+    # окончание
+    print(f"Finished. Best dev EER: {best_eer:.4%}")
+
+
+# ------------- evaluate + логирование -----------------------------
+@torch.no_grad()
+def evaluate_and_log(model, loader, device, comet, epoch_step):
+    model.eval()
+    bona_scores, spoof_scores = [], []
+
+    for x, y, *_ in loader:            # допускаем третий элемент (имя файла)
+        x, y = x.to(device), y.to(device)
+
+        logits = model(x)                            # (B, 2)
+        prob_bona = torch.softmax(logits, 1)[:, 1]   # ↑ bona-confidence
+
+        scores  = prob_bona.cpu().numpy()            # (B,)
+        labels  = y.squeeze(-1).cpu().numpy()        # (B,)
+
+        bona_scores .append(scores[labels == 1])
+        spoof_scores.append(scores[labels == 0])
+
+    if not bona_scores or not spoof_scores:
+        return None, None, None, None
+
+    bonafide_scores = np.concatenate(bona_scores)    # 1-D
+    other_scores    = np.concatenate(spoof_scores)   # 1-D
+
+    # --- EER ---
+    eer, threshold = compute_eer(bonafide_scores, other_scores)
+
+    # --- ROC ---
+    from sklearn.metrics import roc_curve
+    all_scores = np.concatenate((bonafide_scores, other_scores))
+    all_labels = np.concatenate((np.ones_like(bonafide_scores),
+                                 np.zeros_like(other_scores)))
+    fpr, tpr, _ = roc_curve(all_labels, all_scores, pos_label=1)
+
+    # --- Comet ---
+    comet.set_step(epoch_step, mode=prefix)
+    comet.add_scalar(f"eer_{prefix}", eer)
+    comet.add_scalar(f"threshold_{prefix}", threshold)
+
+    try:
+        import pandas as pd
+        comet.add_table("roc_curve", pd.DataFrame({"fpr": fpr, "tpr": tpr}))
+    except ImportError:
+        pass
+
+    return eer, threshold, fpr, tpr
 
 
 if __name__ == "__main__":

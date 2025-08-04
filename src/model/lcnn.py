@@ -67,7 +67,7 @@ class LightCNN9(nn.Module):
             nn.Flatten(1),                    # вектор 128
             MFM(128, 256, fc=True),          # fc1 + MFM
             nn.Dropout(dropout_p),
-            nn.Linear(256, 1)        # логиты (bona p)
+            nn.Linear(256, 2)        # bonafide-логит, spoof-логит
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:

@@ -1,0 +1,8 @@
+_target_: src.datasets.asvspoof.ASVspoofDataset
+root: data/ASVspoof2019_LA
+split: dev                       # <-- только DEV
+bonafide_ratio: null             # берём dev «как есть»
+n_fft: 512
+hop_length: 160
+win_length: 400
+spec_aug: null
