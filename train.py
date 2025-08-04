@@ -74,7 +74,6 @@ def main(cfg: DictConfig):
     )
 
 
-
     # модель/оптимизатор/лосс/scheduler
     model = hydra.utils.instantiate(cfg.model).to(device)
     loss_fn = hydra.utils.instantiate(cfg.loss_fn)
@@ -96,7 +95,7 @@ def main(cfg: DictConfig):
     # --------- 2. тренировочный цикл ---------------------------------------------------------
     for epoch in range(cfg.trainer.epochs):
         model.train()
-        pbar = tqdm(train_dl, desc=f"epoch {epoch+1}", leave=False)
+        pbar = tqdm(train_dl, desc=f"[TRAIN] Epoch {epoch+1}", leave=False)
         running_loss = 0.0
 
         for batch_idx, batch in enumerate(pbar):
@@ -148,7 +147,7 @@ def main(cfg: DictConfig):
 
         # печать прогресса
         # print(f"Epoch {epoch+1} train_loss={running_loss/len(train_dl):.4f} eer_dev={eer if eer is not None else 'nan':.4f}")
-        print(f"Epoch {epoch:2d} train_loss={running_loss/len(train_dl):.4f} "
+        print(f"Epoch {epoch+1} train_loss={running_loss/len(train_dl):.4f} "
               f"eer_dev={eer if eer is not None else 'nan':.4f}  eer_eval={eer_eval:.4%}")
 
     # окончание
@@ -161,7 +160,14 @@ def evaluate_and_log(model, loader, device, comet, epoch_step, prefix="dev"):
     model.eval()
     bona_scores, spoof_scores = [], []
 
-    for x, y, *_ in loader:            # допускаем третий элемент (имя файла)
+    pbar = tqdm(
+        loader,
+        desc=f"[{prefix.upper()}] Epoch {epoch_step:.1f}",
+        leave=False,
+        unit="batch",
+    )
+
+    for x, y, *_ in pbar:            # допускаем третий элемент (имя файла)
         x, y = x.to(device), y.to(device)
 
         logits = model(x)                            # (B, 2)
