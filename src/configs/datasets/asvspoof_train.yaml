@@ -5,4 +5,11 @@ bonafide_ratio: 0.4
 n_fft: 512
 hop_length: 160
 win_length: 400
-spec_aug: null
+spec_aug:
+  _target_: src.datasets.spec_augment.SpecAugment
+  freq_mask_param: 15
+  time_mask_param: 40
+  num_freq_masks: 2
+  num_time_masks: 2
+  p: 1.0
+

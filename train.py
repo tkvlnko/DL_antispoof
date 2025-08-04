@@ -157,7 +157,7 @@ def main(cfg: DictConfig):
 
 # ------------- evaluate + логирование -----------------------------
 @torch.no_grad()
-def evaluate_and_log(model, loader, device, comet, epoch_step):
+def evaluate_and_log(model, loader, device, comet, epoch_step, prefix="dev"):
     model.eval()
     bona_scores, spoof_scores = [], []
 

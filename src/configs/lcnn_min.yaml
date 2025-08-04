@@ -5,7 +5,7 @@ defaults:
   - datasets@eval:  asvspoof_eval    # configs/datasets/asvspoof_eval.yaml    → cfg.datasets.eval
   - _self_
 
-seed: 1
+seed: 254
 
 dataloader:
   collate_fn:
