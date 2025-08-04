@@ -18,7 +18,7 @@ drop_last: true
  
 model:
   _target_: src.model.LightCNN9
-  dropout_p: 0.2
+  dropout_p: 0.3
 
 loss_fn:
   _target_: torch.nn.CrossEntropyLoss
