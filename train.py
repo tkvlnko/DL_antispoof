@@ -100,8 +100,8 @@ def main(cfg: DictConfig):
 
         for batch_idx, batch in enumerate(pbar):
             # pad_collate даёт (x, y, lengths)
-            if len(batch) == 3:
-                x, y, _ = batch
+            if len(batch) > 2:
+                x, y, *rest = batch
             else:
                 x, y = batch  # на случай, если вдруг другой collate
             x = x.to(device)           # B×1×F×T

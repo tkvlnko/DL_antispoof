@@ -168,4 +168,6 @@ class ASVspoofDataset(Dataset):
         if self.spec_aug and self.split == "train":
             feat = self.spec_aug(feat)      # F×T (аугмент)
 
-        return feat, rec["label"]           # collate → pad & unsqueeze
+        wav_name = rec["path"].stem            # 'LA_E_1234567'
+        return feat, rec["label"], wav_name 
+         # collate → pad & unsqueeze
