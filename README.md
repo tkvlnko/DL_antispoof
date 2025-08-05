@@ -4,7 +4,6 @@ Implementation of the Light CNN-9 architecture with Max-Feature-Map activation f
 
 
 
-[Table of Contents](#table-of-contents)
 - [**Voice Anti-Spoofing Countermeasure on ASVspoof2019 LA**](#voice-anti-spoofing-countermeasure-on-asvspoof2019-la)
   - [Features](#features)
   - [Getting Started](#getting-started)
