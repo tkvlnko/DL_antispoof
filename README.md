@@ -191,7 +191,7 @@ The countermeasure is based on the **Light CNN-9** design from Wen *et al.* (201
 
 ## Metrics
 ![metrics](./grading/metrics.png)
-![metrics2](./grading/metrics.png)
+![metrics2](./grading/metrics2.png)
 
 On evaluation dataset the EER of 5.4% was achieved 
 Parameters:
