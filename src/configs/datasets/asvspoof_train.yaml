@@ -1,7 +1,7 @@
 _target_: src.datasets.asvspoof.ASVspoofDataset
 root: data/ASVspoof2019_LA       
 split: train                     
-bonafide_ratio: 0.25              
+bonafide_ratio: 0.3              
 n_fft: 512
 hop_length: 160
 win_length: 400

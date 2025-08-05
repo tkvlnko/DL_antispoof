@@ -18,7 +18,7 @@ drop_last: true
  
 model:
   _target_: src.model.LightCNN9
-  dropout_p: 0.3
+  dropout_p: 0.35
 
 loss_fn:
   _target_: torch.nn.CrossEntropyLoss
@@ -36,7 +36,7 @@ scheduler:
 #   _target_: torch.nn.CrossEntropyLoss
 
 trainer:
-  epochs: 10
+  epochs: 12
   log_steps: 50
   device: cuda 
 
