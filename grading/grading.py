@@ -5,13 +5,13 @@ from copy import deepcopy
 
 from src.metrics.calculate_eer import compute_eer
 
-# --- Paths ---
+# ================= Paths 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROTOCOL_PATH = os.path.join(BASE_DIR, "data/ASVspoof2019_LA/protocols/ASVspoof2019.LA.cm.eval.trl.txt")
 SOLUTIONS_DIR = os.path.join(BASE_DIR, "students_solutions")
 OUTPUT_CSV = os.path.join(BASE_DIR, "grades.csv")
 
-# --- Load protocol ---
+# ================= Load protocol 
 index = []
 with open(PROTOCOL_PATH, "r") as protocol:
     for line in protocol:
@@ -21,51 +21,45 @@ with open(PROTOCOL_PATH, "r") as protocol:
             "label": 1 if label == "bonafide" else 0
         })
 
-# --- Prepare output ---
 results = []
 
-# --- Process each student file ---
+# ================= Process each student file
 for filename in os.listdir(SOLUTIONS_DIR):
     if filename.endswith(".csv"):
         name = filename.replace(".csv", "")
         filepath = os.path.join(SOLUTIONS_DIR, filename)
 
-        # Load student scores into a dict
         student_scores = {}
         with open(filepath, "r") as f:
             reader = csv.reader(f)
             for row in reader:
                 if len(row) != 2:
-                    continue  # skip malformed lines
+                    continue  
                 key, score = row
                 student_scores[key] = float(score)
 
-        # Build student index
         student_index = deepcopy(index)
         for entry in student_index:
             key = entry["key"]
-            entry["score"] = student_scores[key]  # error if missing
+            entry["score"] = student_scores[key] 
 
-        # Extract scores and labels
         scores = np.array([entry["score"] for entry in student_index])
         labels = np.array([entry["label"] for entry in student_index])
 
         assert len(scores) == len(index), "Not enough / too many scores"
 
-        # Compute EER
+        # ================= Compute EER
         bona_cm = scores[labels == 1]
         spoof_cm = scores[labels == 0]
         eer, _ = compute_eer(bona_cm, spoof_cm)
 
         eer *= 100 # in %
 
-        # Grade calculation
         if eer > 9.5:
             grade = 0
         elif eer < 5.3:
             grade = 10
         else:
-            # Linear interpolation between 4 and 10
             grade = 4 + (9.5 - eer) * (6 / (9.5 - 5.3))
 
         results.append({
@@ -75,7 +69,7 @@ for filename in os.listdir(SOLUTIONS_DIR):
             "grade": round(grade, 2)
         })
 
-# --- Write output CSV ---
+# ================= Write output CSV
 with open(OUTPUT_CSV, "w", newline="") as f:
     writer = csv.DictWriter(f, fieldnames=["name", "email", "eer", "grade"])
     writer.writeheader()

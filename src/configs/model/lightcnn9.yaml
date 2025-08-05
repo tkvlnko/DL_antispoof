@@ -1,0 +1,2 @@
+_target_: src.model.LightCNN9
+dropout_p: 0.35

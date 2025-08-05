@@ -15,7 +15,7 @@ from src.logger.cometml import CometMLWriter  # если ты инстанцир
 from src.metrics.calculate_eer import compute_eer, roc_curve  # твоя функция: (bona, spoof) -> eer, thr, fpr, tpr
 
 # main entrypoint через Hydra
-@hydra.main(config_path="src/configs", config_name="lcnn_min", version_base=None)
+@hydra.main(config_path="src/configs", config_name="lcnn9", version_base=None)
 def main(cfg: DictConfig):
 
     # --------- 1. подготовка ----------------------------------------------------------------

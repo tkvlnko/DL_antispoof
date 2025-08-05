@@ -1,20 +1,16 @@
 """
-src/datasets/asvspoof.py
-~~~~~~~~~~~~~~~~~~~~~~~~
-Датасет ASVspoof-2019 LA + «готовый» препроцесс аудио → лог-спектр.
+=======================
+Dataset ASVspoof-2019 LA
+Preprocess audio -> log-scpectrum
 
-⚑ Главные решения, откуда взялись
-────────────────────────────────
-1. STFT-фронтенд (n_fft=512, hop=160, win=400) — как в статье Speech
-   Technology Center (DOI: 10.1109/ICASSP.2020.9053040). Всю цепочку
-   torchaudio → |FFT|^2 → log(1+x).
-2. Никакого trim / фиксированной длины — модель LightCNN-9 умеет работать
-   с T любого размера, а AdaptiveAvgPool потом ужимает частотную ось.
-3. Баланс классов «bona/spoof» регулируется аргументом `bonafide_ratio`;
-   при значении 0.5 получаем примерно равные классы (совет из обзора
-   EER-vs-loss функций: arXiv 2103.11326).
-4. Допустимы *пропуски* файлов: если wav нет на диске —
-   «спокойно» пропускаем строку (иначе тренировку ломает IndexError).
+- Front-end: STFT [Short-time Fourier transform]
+    - n_fft = 512
+    - hop = 160
+    - win = 400
+    torchaudio → |FFT|^2 → log(1+x)
+
+- bonafide_ratio: balance of classes bona/spoof
+
 """
 
 from __future__ import annotations
@@ -32,8 +28,8 @@ import torch.nn.functional as F
 
 
 class ASVspoofDataset(Dataset):
-    # параметры STFT по умолчанию (можно переопределять в YAML)
-    DEFAULT_N_FFT = 512
+    # ================= STFT parameters
+    DEFAULT_N_FFT = 512         # frames have exact length of n_fft, required by stft
     DEFAULT_HOP   = 160
     DEFAULT_WIN   = 400
     SAMPLE_RATE   = 16_000      # датасет 16 кГц

@@ -1,0 +1,31 @@
+defaults:
+  - datasets@train: asvspoof_train
+  - datasets@dev: asvspoof_dev
+  - datasets@eval: asvspoof_eval
+  - dataloader: dataloader_lcnn
+  - model: lightcnn9
+  - writer: cometml
+  - _self_
+
+seed: 254
+batch_size: 64
+num_workers: 4
+shuffle: true
+drop_last: true
+
+loss_fn:
+  _target_: torch.nn.CrossEntropyLoss
+
+optimizer:
+  _target_: torch.optim.AdamW
+  lr: 3e-4
+  weight_decay: 1e-4
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  T_max: 30
+
+trainer:
+  epochs: 12
+  log_steps: 50
+  device: cuda
