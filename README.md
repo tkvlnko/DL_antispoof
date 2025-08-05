@@ -2,11 +2,10 @@
 # **Voice Anti-Spoofing Countermeasure on ASVspoof2019 LA**
 Implementation of the Light CNN-9 architecture with Max-Feature-Map activation for detecting bona-fide vs. spoofed speech. Supports end-to-end training, evaluation, and inference, with configurable data, model, and logging settings.
 
-<br/>
 
-## Table of Contents
+
+[Table of Contents](#table-of-contents)
 - [**Voice Anti-Spoofing Countermeasure on ASVspoof2019 LA**](#voice-anti-spoofing-countermeasure-on-asvspoof2019-la)
-  - [Table of Contents](#table-of-contents)
   - [Features](#features)
   - [Getting Started](#getting-started)
     - [Requirements](#requirements)
