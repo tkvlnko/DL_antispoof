@@ -13,6 +13,7 @@ Implementation of the Light CNN-9 architecture with Max-Feature-Map activation f
     - [Usage](#usage)
   - [Evaluation \& Grading](#evaluation--grading)
   - [Project Structure \& Model Architecture](#project-structure--model-architecture)
+  - [Metrics](#metrics)
   - [Credits](#credits)
   - [License](#license)
 
@@ -174,6 +175,16 @@ The countermeasure is based on the **Light CNN-9** design from Wen *et al.* (201
    * At inference, we apply a softmax and take the “bona-fide” class probability as the confidence score.
    * **EER** is computed by sweeping thresholds over these scores to find the operating point where **FAR = FRR**.
 
+<br/>
+
+## Metrics
+![metrics](./grading/metrics.png)
+
+On evaluation dataset the EER of 5.4% was achieved 
+Parameters:
+- learning rate: 3x10-4
+- droupout: 0.3
+- seed: 254
 
 
 <br/>
