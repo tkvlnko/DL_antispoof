@@ -13,7 +13,7 @@ Implementation of the Light CNN-9 architecture with Max-Feature-Map activation f
     - [Installation](#installation)
     - [Data Preparation](#data-preparation)
     - [Usage](#usage)
-    - [Evaluation \& Grading](#evaluation--grading)
+  - [Evaluation \& Grading](#evaluation--grading)
   - [Project Structure \& Model Architecture](#project-structure--model-architecture)
   - [Credits](#credits)
   - [License](#license)
@@ -95,7 +95,7 @@ python train.py
 
 <br/>
 
-### Evaluation & Grading
+## Evaluation & Grading
 
 Logs and checkpoints will be written to `hydra.run.dir` and into terminal by default [EER on dev snd eval]. Run:
 
@@ -130,7 +130,7 @@ to obtian model results and EER
 
 The countermeasure is based on the **Light CNN-9** design from Wen *et al.* (2016), adapted to anti-spoofing:
 
-1. **Input & Preprocessing**
+ **Architecture**
 
    * **Input shape**: `B×1×F×T`
 
@@ -140,13 +140,14 @@ The countermeasure is based on the **Light CNN-9** design from Wen *et al.* (201
      * `T` = number of time frames (variable).
    * **Front-end**: STFT → power spectrum → `log(1 + x)` → (optional) SpecAugment.
 
-2. **Max-Feature-Map (MFM) Activation**
+   * **Max-Feature-Map (MFM) Activation**
 
-   * Each MFM layer contains a convolution (or linear) with **2×** the desired output channels, then splits its output into two halves and takes an element-wise maximum.
-   * This competitive gating prunes weaker feature responses and yields exactly `C` channels from an initial `2C`, improving sparsity and generalization.
+     * Each MFM layer contains a convolution (or linear) with **2×** the desired output channels, then splits its output into two halves and takes an element-wise maximum.
 
-3. **Convolutional Backbone**
-   We stack **five convolutional blocks**, alternating 1×1 and 3×3 kernels, interleaved with MFM and pooling:
+
+   * **Convolutional Backbone**
+  
+      Five convolutional blocks are used, alternating 1×1 and 3×3 kernels, interleaved with MFM and pooling:
 
    | Block | Layers                                                                                             | Output Shape        |
    | :---: | :------------------------------------------------------------------------------------------------- | :------------------ |
@@ -158,19 +159,18 @@ The countermeasure is based on the **Light CNN-9** design from Wen *et al.* (201
 
 
 
-4. **Global Feature Aggregation**
+* **Global Feature Aggregation**
 
-   * **AdaptiveAvgPool2d((1,1))** collapses the `(F/16)×(T/16)` feature map to a single vector of length 128 per example.
-   * This design makes the network **time-invariant**: it can handle any input length T.
+   * **AdaptiveAvgPool2d((1,1))** collapses the `(F/16)×(T/16)` feature map to a single vector of length 128 per example.This design makes the network **time-invariant**: it can handle any input length T.
 
-5. **Fully-Connected Classifier**
+* **Fully-Connected Classifier**
 
    * **Flatten** to `[B×128]`.
    * **MFM FC**: Linear(128→512) → MFM → 256 features.
    * **Dropout** (0.2 by default) for regularization.
    * **Final Linear**: 256 → 2 logits (bona-fide vs. spoof).
 
-6. **Loss & Inference**
+* **Loss & Inference**
 
    *  **CrossEntropyLoss** is used on the two logits during training.
    * At inference, we apply a softmax and take the “bona-fide” class probability as the confidence score.
