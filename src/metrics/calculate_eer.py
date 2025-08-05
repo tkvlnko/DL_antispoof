@@ -2,26 +2,25 @@ import numpy as np
 
 def compute_det_curve(target_scores, nontarget_scores):
     """
-    Исходя из bonaide=positive и spoof=negative, возвращает:
+    Assumes bonaide = positive and spoof = negative
         frr: false rejection rate (miss rate)
         far: false acceptance rate
-        thresholds: соответствующие пороги (в порядке возрастания scores)
     """
     target_scores = np.atleast_1d(target_scores)
     nontarget_scores = np.atleast_1d(nontarget_scores)
 
     if target_scores.size == 0 or nontarget_scores.size == 0:
-        raise ValueError("Обе группы bonaide и spoof должны быть непустыми.")
+        raise ValueError("Both bonaide and spoof must be non-empty.")
 
     n_scores = target_scores.size + nontarget_scores.size
     all_scores = np.concatenate((target_scores, nontarget_scores))
     labels = np.concatenate((np.ones(target_scores.size), np.zeros(nontarget_scores.size)))
 
-    # Sort by score ascending (lower threshold = stricter)
+    # ============ sort by score ascending;lower threshold = stricter
     indices = np.argsort(all_scores, kind="mergesort")
     labels = labels[indices]
 
-    # Cumulative bonafide accepted and spoof accepted
+    # ============ Cumulative bonafide accepted and spoof accepted
     tar_trial_sums = np.cumsum(labels)
     nontarget_trial_sums = nontarget_scores.size - (np.arange(1, n_scores + 1) - tar_trial_sums)
 
@@ -32,10 +31,6 @@ def compute_det_curve(target_scores, nontarget_scores):
 
 
 def compute_eer(bonafide_scores, other_scores):
-    """
-    Equal error rate: точка, где FAR ~= FNR (1 - TPR).
-    Возвращает: eer (float), threshold (float)
-    """
     frr, far, thresholds = compute_det_curve(bonafide_scores, other_scores)
     fnr = 1.0 - (1.0 - frr)  # = frr
     abs_diffs = np.abs(far - frr)
@@ -46,9 +41,6 @@ def compute_eer(bonafide_scores, other_scores):
 
 
 def roc_curve(bonafide_scores, spoof_scores):
-    """
-    Приводит к классической ROC: возвращает FPR, TPR, thresholds.
-    """
     frr, far, thresholds = compute_det_curve(bonafide_scores, spoof_scores)
     tpr = 1.0 - frr
     fpr = far

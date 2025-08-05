@@ -1,11 +1,14 @@
-# src/model/lightcnn_la.py
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
 class MFM(nn.Module):
-    """Max-Feature-Map (2/1) для conv и fc-слоёв :contentReference[oaicite:12]{index=12}"""
+    """
+    Max-Feature-Map (2 channels -> 1) for conv & FC-layers 
+    - in_ch: input channels
+    - out_ch: output channels (after MFM)
+    - k, s, p: kernel size, stride, padding (for Conv2d)
+    """
     def __init__(self, in_ch, out_ch, k=3, s=1, p=0, fc=False):
         super().__init__()
         if fc:
@@ -19,55 +22,50 @@ class MFM(nn.Module):
     def forward(self, x):
         x = self.filter(x)
         a, b = torch.split(x, self.out_ch, dim=self.split_dim)
-        return torch.max(a, b)          # competitive activation
+        return torch.max(a, b)          
 
 
-def nin(in_ch, out_ch):                 # 1×1 conv + MFM
+# network-in-network: 1×1 conv + MFM
+def nin(in_ch, out_ch):                 
     return MFM(in_ch, out_ch, k=1, s=1, p=0)
 
 
 class LightCNN9(nn.Module):
-    """
-    LightCNN-9 под голосовой антиспуфинг.
-    Вход: B×1×F×T, где F=257 (|FFT|/2+1), T — любая длина.
-    Выход: логиты (B×n_classes).
-    """
     def __init__(self, n_classes: int = 2, dropout_p: float = 0.2):
         super().__init__()
 
         self.features = nn.Sequential(
-            # ------- блок 1 -------
-            MFM( 1,  48, k=5, p=2),            # Conv1 → MFM1
-            nn.MaxPool2d(2, 2),                # 1/2 по частоте и времени
+            # ------- block 1 -------           # Conv1: 128×128×96 ->
+            MFM(1,  48, k=5, p=2),              # MFM1: 128×128×48->
+            nn.MaxPool2d(2, 2),                 # Pool1: 64×64×48
 
-            # ------- блок 2 -------
-            nin(48,  48),                      # 1×1 conv (Conv2a)
-            MFM(48, 96, k=3, p=1),             # Conv2
-            nn.MaxPool2d(2, 2),
+            # ------- block 2 -------
+            nin(48,  48),                       # Conv2a: 64×64×96 -> MFM2a: 64×64×48
+            MFM(48, 96, k=3, p=1),              # Conv2: 64×64×192 -> MFM2: 64×64×96
+            nn.MaxPool2d(2, 2),                 # Pool2: 32×32×96
 
-            # ------- блок 3 -------
-            nin(96,  96),
-            MFM(96, 192, k=3, p=1),
-            nn.MaxPool2d(2, 2),
+            # ------- block 3 -------
+            nin(96,  96),                       # Conv3a: 32×32×192 -> MFM3a: 32×32×96
+            MFM(96, 192, k=3, p=1),             # Conv3: 32×32×384 -> MFM3: 32×32×192
+            nn.MaxPool2d(2, 2),                 # Pool3: 16×16×192
 
-            # ------- блок 4 -------
-            nin(192, 192),
-            MFM(192, 128, k=3, p=1),
+            # ------- block 4 -------
+            nin(192, 192),                      # Conv4a: 16×16×384 -> MFM4a: 16×16×192
+            MFM(192, 128, k=3, p=1),            # Conv4: 16×16×256 -> MFM4: 16×16×128
 
-            # ------- блок 5 -------
-            nin(128, 128),
-            MFM(128, 128, k=3, p=1),
-            nn.MaxPool2d(2, 2),
+            # ------- block 5 -------
+            nin(128, 128),                      # Conv5a: 16×16×256 -> MFM5a: 16×16×128
+            MFM(128, 128, k=3, p=1),            # Conv5: 16×16×256 -> MFM5: 16×16×128
+            nn.MaxPool2d(2, 2),                 # Pool5: 8×8×128
         )
 
-        # усредняем только по частотной оси, время оставляем — average pooling рекомендуется в :contentReference[oaicite:13]{index=13}
-        self.global_pool = nn.AdaptiveAvgPool2d((1, 1))   # B×C×1×T'
+        self.global_pool = nn.AdaptiveAvgPool2d((1, 1))   # 8×8×128 -> 1×1×128
 
         self.classifier = nn.Sequential(
-            nn.Flatten(1),                    # вектор 128
-            MFM(128, 256, fc=True),          # fc1 + MFM
+            nn.Flatten(1),                    # 1×1×128 -> 128
+            MFM(128, 256, fc=True),           # fc1 + MFM
             nn.Dropout(dropout_p),
-            nn.Linear(256, 2)        # bonafide-логит, spoof-логит
+            nn.Linear(256, 2)                 # bonafide-logit, spoof-logit
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
