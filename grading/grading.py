@@ -1,9 +1,17 @@
-import os
+import os, sys
 import csv
 import numpy as np
 from copy import deepcopy
 
 from src.metrics.calculate_eer import compute_eer
+# if doesnt work:
+# from runpy import run_path
+# module_vars = run_path(os.path.join(
+#     os.path.dirname(__file__),
+#     "..", "src", "metrics", "calculate_eer.py"
+# ))
+# compute_eer = module_vars["compute_eer"]
+
 
 # ================= Paths 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

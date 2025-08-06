@@ -9,7 +9,6 @@ Implementation of the Light CNN-9 architecture with Max-Feature-Map activation f
 [![Comet ML](https://img.shields.io/badge/Comet%20ML-enabled-orange)](https://www.comet.com/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![NumPy](https://img.shields.io/badge/numpy-1.23%2B-yellow)](https://numpy.org/)
-[![SciPy](https://img.shields.io/badge/scipy-1.7%2B-lightgrey)](https://scipy.org/)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-1.0%2B-orange)](https://scikit-learn.org/)
 [![Matplotlib](https://img.shields.io/badge/matplotlib-3.5%2B-purple)](https://matplotlib.org/)
 [![CUDA](https://img.shields.io/badge/CUDA-11.6%2B-darkred)](https://developer.nvidia.com/cuda-zone)
@@ -53,7 +52,7 @@ Implementation of the Light CNN-9 architecture with Max-Feature-Map activation f
 * [torchaudio](https://pytorch.org/audio/)
 * [Hydra](https://hydra.cc/) 1.1+
 * [Comet ML](https://www.comet.com/) (optional)
-* NumPy, SciPy, scikit-learn, matplotlib
+* NumPy, scikit-learn, matplotlib
 
 
 ### Installation

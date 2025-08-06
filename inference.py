@@ -36,16 +36,16 @@ def evaluate_and_log(model, loader, device, comet, epoch_step, prefix="dev"):
     bonafide_scores = np.concatenate(bona_scores)    
     other_scores    = np.concatenate(spoof_scores)   
 
-    # --- EER ---
+    # === EER
     eer, threshold = compute_eer(bonafide_scores, other_scores)
 
-    # --- ROC ---
+    # === ROC 
     all_scores = np.concatenate((bonafide_scores, other_scores))
     all_labels = np.concatenate((np.ones_like(bonafide_scores),
                                  np.zeros_like(other_scores)))
     fpr, tpr, _ = roc_curve(all_labels, all_scores, pos_label=1)
 
-    # --- Comet ---
+    # === Comet 
     comet.set_step(epoch_step, mode=prefix)
     comet.add_scalar(f"eer_{prefix}", eer)
     comet.add_scalar(f"threshold_{prefix}", threshold)
